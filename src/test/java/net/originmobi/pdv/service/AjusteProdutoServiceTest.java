@@ -32,7 +32,7 @@ class AjusteProdutoServiceTest {
     private ProdutoService produtoService;
 
     @Mock
-    private AjusteService ajusteService;
+    private AjusteService ajusteService;  
 
     @BeforeEach
     void setUp() {
@@ -170,26 +170,7 @@ class AjusteProdutoServiceTest {
 
         assertEquals("Ajuste processado com sucesso", result);
         verify(ajusteProdutoRepository).insereProduto(codAjuste, codProd, 0, qtdAlteracao, 5);
-    }
-
-    @Test
-    void testAddProdutoNotFound() {
-        Long codAjuste = 1L;
-        Long codProd = 2L;
-        int qtdAlteracao = 5;
-
-        Ajuste ajuste = new Ajuste();
-        ajuste.setStatus(AjusteStatus.APROCESSAR);
-
-        when(ajusteService.busca(codAjuste)).thenReturn(Optional.of(ajuste));
-        when(produtoService.busca(codProd)).thenThrow(new RuntimeException("Produto não encontrado"));
-
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            service.addProduto(codAjuste, codProd, qtdAlteracao);
-        });
-
-        assertEquals("Produto não encontrado", exception.getMessage());
-    }
+    }   
     
     @Test
     void testAddProdutoInsertError() {
@@ -232,7 +213,65 @@ class AjusteProdutoServiceTest {
         assertEquals("Produto removido com sucesso", result);
         verify(ajusteProdutoRepository).removeProduto(codAjuste, codItem);
     }
+    
+    @Test
+    void testAddProdutoAjusteJaProcessado() {
+        Long codAjuste = 1L;
+        Long codProd = 2L;
 
+        Ajuste ajuste = new Ajuste();
+        ajuste.setStatus(AjusteStatus.PROCESSADO);
 
+        when(ajusteService.busca(codAjuste)).thenReturn(Optional.of(ajuste));
 
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            service.addProduto(codAjuste, codProd, 5);
+        });
+
+        assertEquals("Ajuste já esta processado", exception.getMessage());
+    }   
+    
+    @Test
+    void testAddProdutoProdutoNaoEncontrado() {
+        Long codAjuste = 1L;
+        Long codProd = 2L;
+        int qtdAlteracao = 5;
+
+        Ajuste ajuste = new Ajuste();
+        ajuste.setStatus(AjusteStatus.APROCESSAR);
+
+        when(ajusteService.busca(codAjuste)).thenReturn(Optional.of(ajuste));
+        when(produtoService.busca(codProd)).thenThrow(new RuntimeException("Produto não encontrado"));
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            service.addProduto(codAjuste, codProd, qtdAlteracao);
+        });
+
+        assertEquals("Produto não encontrado", exception.getMessage());
+    }    
+    
+    @Test
+    void testAddProdutoJaExistenteNoAjuste() {
+        Long codAjuste = 1L;
+        Long codProd = 2L;
+        int qtdAlteracao = 5;
+
+        Ajuste ajuste = new Ajuste();
+        ajuste.setStatus(AjusteStatus.APROCESSAR);
+        Produto produto = new Produto();
+        ProdutoEstoque estoque = new ProdutoEstoque();
+        estoque.setQtd(10);
+        produto.setEstoque(estoque);
+
+        when(ajusteService.busca(codAjuste)).thenReturn(Optional.of(ajuste));
+        when(produtoService.busca(codProd)).thenReturn(produto);
+        when(ajusteProdutoRepository.buscaProdAjuste(codAjuste, codProd)).thenReturn(1);
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            service.addProduto(codAjuste, codProd, qtdAlteracao);
+        });
+
+        assertEquals("Este produto já existe neste ajuste", exception.getMessage());
+    }       
+    
 }
